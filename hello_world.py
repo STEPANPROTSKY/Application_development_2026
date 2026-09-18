@@ -55,6 +55,9 @@ class Queue:
         print('bye')
         exit()
 
+    def hello_world(self):
+        print("Hello, World!")
+
 def main():
     queue = Queue()
     commands = {
@@ -64,6 +67,7 @@ def main():
         'size':  queue.size,
         'view':  queue.view,
         'clear': queue.clear,
+        'hello': queue.hello_world,
     }
     
     for line in sys.stdin:
