@@ -1,0 +1,265 @@
+openapi: 3.0.3
+info:
+  title: Delivery API
+  description: |
+    API службы доставки: клиент оформляет доставку, смотрит её статус,
+    меняет адрес, пока посылка не отправлена, и отменяет доставку.
+    Все запросы требуют Bearer-токен клиента.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Локальный сервер
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: deliveries
+    description: Доставки клиента
+
+paths:
+  /deliveries:
+    get:
+      tags: [deliveries]
+      operationId: listDeliveries
+      summary: Получить список доставок текущего клиента
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Фильтр по статусу доставки
+          schema:
+            $ref: '#/components/schemas/DeliveryStatus'
+      responses:
+        '200':
+          description: Список доставок
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Delivery'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [deliveries]
+      operationId: createDelivery
+      summary: Оформить новую доставку
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryCreateRequest'
+      responses:
+        '201':
+          description: Доставка оформлена, стоимость рассчитана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deliveries/{deliveryId}:
+    parameters:
+      - name: deliveryId
+        in: path
+        required: true
+        description: Идентификатор доставки
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          example: 1
+
+    get:
+      tags: [deliveries]
+      operationId: getDelivery
+      summary: Получить одну доставку и её текущий статус
+      responses:
+        '200':
+          description: Доставка найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [deliveries]
+      operationId: updateDelivery
+      summary: Изменить адрес или комментарий, пока доставка не отправлена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryUpdateRequest'
+      responses:
+        '200':
+          description: Доставка обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags: [deliveries]
+      operationId: cancelDelivery
+      summary: Отменить доставку, пока она не отправлена
+      responses:
+        '204':
+          description: Доставка отменена
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Некорректный запрос — параметры или тело не прошли валидацию
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Не знаю, кто ты — токен отсутствует или недействителен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Знаю, кто ты, но нельзя — это доставка другого клиента
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Доставка с таким идентификатором не найдена
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Действие недоступно в текущем статусе — посылка уже в пути, доставлена или отменена
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    DeliveryStatus:
+      type: string
+      enum: [created, in_transit, delivered, cancelled]
+
+    # --- Входные DTO. Владельца сервер берёт из токена, цену и статус считает сам ---
+    DeliveryCreateRequest:
+      type: object
+      required: [address, recipientName, weightKg]
+      properties:
+        address:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: г. Екатеринбург, ул. Ленина, 1, кв. 5
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Иван Петров
+        weightKg:
+          type: number
+          format: double
+          minimum: 0.1
+          maximum: 30
+          example: 2.5
+        comment:
+          type: string
+          maxLength: 300
+          example: Позвонить за час
+
+    DeliveryUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        address:
+          type: string
+          minLength: 5
+          maxLength: 200
+        comment:
+          type: string
+          maxLength: 300
+
+    # --- Выходной DTO. Внутренние поля (id клиента, id курьера,
+    #     себестоимость) наружу не отдаются ---
+    Delivery:
+      type: object
+      required: [id, status, address, recipientName, weightKg, price]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        address:
+          type: string
+          example: г. Екатеринбург, ул. Ленина, 1, кв. 5
+        recipientName:
+          type: string
+          example: Иван Петров
+        weightKg:
+          type: number
+          format: double
+          example: 2.5
+        comment:
+          type: string
+          example: Позвонить за час
+        price:
+          type: number
+          format: double
+          description: Стоимость доставки в рублях
+          example: 425.0
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          example: 404
+        message:
+          type: string
+          example: Доставка не найдена

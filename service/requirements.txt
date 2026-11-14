@@ -1,0 +1,7 @@
+# Правка руками: генератор не пинил Werkzeug, а Flask 2.1.1 несовместим с Werkzeug 3.x
+connexion[swagger-ui] == 2.14.2
+Flask == 2.1.1
+Werkzeug == 2.2.3
+swagger-ui-bundle >= 0.0.2
+python_dateutil >= 2.6.0
+setuptools >= 21.0.0

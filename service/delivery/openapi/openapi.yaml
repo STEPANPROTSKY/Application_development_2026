@@ -1,0 +1,406 @@
+openapi: 3.0.3
+info:
+  description: |
+    API службы доставки: клиент оформляет доставку, смотрит её статус,
+    меняет адрес, пока посылка не отправлена, и отменяет доставку.
+    Все запросы требуют Bearer-токен клиента.
+  title: Delivery API
+  version: 1.0.0
+servers:
+- description: Локальный сервер
+  url: http://localhost:8080/api/v1
+security:
+- bearerAuth: []
+tags:
+- description: Доставки клиента
+  name: deliveries
+paths:
+  /deliveries:
+    get:
+      operationId: list_deliveries
+      parameters:
+      - description: Фильтр по статусу доставки
+        explode: true
+        in: query
+        name: status
+        required: false
+        schema:
+          $ref: '#/components/schemas/DeliveryStatus'
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Delivery'
+                type: array
+          description: Список доставок
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Некорректный запрос — параметры или тело не прошли валидацию
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Не знаю, кто ты — токен отсутствует или недействителен"
+      summary: Получить список доставок текущего клиента
+      tags:
+      - deliveries
+      x-openapi-router-controller: delivery.controllers.deliveries_controller
+    post:
+      operationId: create_delivery
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryCreateRequest'
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+          description: "Доставка оформлена, стоимость рассчитана"
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Некорректный запрос — параметры или тело не прошли валидацию
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Не знаю, кто ты — токен отсутствует или недействителен"
+      summary: Оформить новую доставку
+      tags:
+      - deliveries
+      x-openapi-router-controller: delivery.controllers.deliveries_controller
+  /deliveries/{deliveryId}:
+    delete:
+      operationId: cancel_delivery
+      parameters:
+      - description: Идентификатор доставки
+        explode: false
+        in: path
+        name: deliveryId
+        required: true
+        schema:
+          example: 1
+          format: int64
+          minimum: 1
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: Доставка отменена
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Не знаю, кто ты — токен отсутствует или недействителен"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Знаю, кто ты, но нельзя — это доставка другого клиента"
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Доставка с таким идентификатором не найдена
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Действие недоступно в текущем статусе — посылка уже в пути\
+            , доставлена или отменена"
+      summary: "Отменить доставку, пока она не отправлена"
+      tags:
+      - deliveries
+      x-openapi-router-controller: delivery.controllers.deliveries_controller
+    get:
+      operationId: get_delivery
+      parameters:
+      - description: Идентификатор доставки
+        explode: false
+        in: path
+        name: deliveryId
+        required: true
+        schema:
+          example: 1
+          format: int64
+          minimum: 1
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+          description: Доставка найдена
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Не знаю, кто ты — токен отсутствует или недействителен"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Знаю, кто ты, но нельзя — это доставка другого клиента"
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Доставка с таким идентификатором не найдена
+      summary: Получить одну доставку и её текущий статус
+      tags:
+      - deliveries
+      x-openapi-router-controller: delivery.controllers.deliveries_controller
+    patch:
+      operationId: update_delivery
+      parameters:
+      - description: Идентификатор доставки
+        explode: false
+        in: path
+        name: deliveryId
+        required: true
+        schema:
+          example: 1
+          format: int64
+          minimum: 1
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryUpdateRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+          description: Доставка обновлена
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Некорректный запрос — параметры или тело не прошли валидацию
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Не знаю, кто ты — токен отсутствует или недействителен"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Знаю, кто ты, но нельзя — это доставка другого клиента"
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Доставка с таким идентификатором не найдена
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Действие недоступно в текущем статусе — посылка уже в пути\
+            , доставлена или отменена"
+      summary: "Изменить адрес или комментарий, пока доставка не отправлена"
+      tags:
+      - deliveries
+      x-openapi-router-controller: delivery.controllers.deliveries_controller
+components:
+  responses:
+    BadRequest:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      description: Некорректный запрос — параметры или тело не прошли валидацию
+    Unauthorized:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      description: "Не знаю, кто ты — токен отсутствует или недействителен"
+    Forbidden:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      description: "Знаю, кто ты, но нельзя — это доставка другого клиента"
+    NotFound:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      description: Доставка с таким идентификатором не найдена
+    Conflict:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      description: "Действие недоступно в текущем статусе — посылка уже в пути, до\
+        ставлена или отменена"
+  schemas:
+    DeliveryStatus:
+      enum:
+      - created
+      - in_transit
+      - delivered
+      - cancelled
+      title: DeliveryStatus
+      type: string
+    DeliveryCreateRequest:
+      example:
+        address: "г. Екатеринбург, ул. Ленина, 1, кв. 5"
+        recipientName: Иван Петров
+        comment: Позвонить за час
+        weightKg: 2.5
+      properties:
+        address:
+          example: "г. Екатеринбург, ул. Ленина, 1, кв. 5"
+          maxLength: 200
+          minLength: 5
+          title: address
+          type: string
+        recipientName:
+          example: Иван Петров
+          maxLength: 100
+          minLength: 1
+          title: recipientName
+          type: string
+        weightKg:
+          example: 2.5
+          format: double
+          maximum: 30
+          minimum: 0.1
+          title: weightKg
+          type: number
+        comment:
+          example: Позвонить за час
+          maxLength: 300
+          title: comment
+          type: string
+      required:
+      - address
+      - recipientName
+      - weightKg
+      title: DeliveryCreateRequest
+      type: object
+    DeliveryUpdateRequest:
+      example:
+        address: address
+        comment: comment
+      minProperties: 1
+      properties:
+        address:
+          maxLength: 200
+          minLength: 5
+          title: address
+          type: string
+        comment:
+          maxLength: 300
+          title: comment
+          type: string
+      title: DeliveryUpdateRequest
+      type: object
+    Delivery:
+      example:
+        address: "г. Екатеринбург, ул. Ленина, 1, кв. 5"
+        price: 425.0
+        recipientName: Иван Петров
+        comment: Позвонить за час
+        id: 1
+        weightKg: 2.5
+        status: created
+      properties:
+        id:
+          example: 1
+          format: int64
+          title: id
+          type: integer
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        address:
+          example: "г. Екатеринбург, ул. Ленина, 1, кв. 5"
+          title: address
+          type: string
+        recipientName:
+          example: Иван Петров
+          title: recipientName
+          type: string
+        weightKg:
+          example: 2.5
+          format: double
+          title: weightKg
+          type: number
+        comment:
+          example: Позвонить за час
+          title: comment
+          type: string
+        price:
+          description: Стоимость доставки в рублях
+          example: 425.0
+          format: double
+          title: price
+          type: number
+      required:
+      - address
+      - id
+      - price
+      - recipientName
+      - status
+      - weightKg
+      title: Delivery
+      type: object
+    Error:
+      example:
+        code: 404
+        message: Доставка не найдена
+      properties:
+        code:
+          example: 404
+          title: code
+          type: integer
+        message:
+          example: Доставка не найдена
+          title: message
+          type: string
+      required:
+      - code
+      - message
+      title: Error
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+      x-bearerInfoFunc: delivery.controllers.security_controller.info_from_bearerAuth
